@@ -1,6 +1,7 @@
 from bs4 import BeautifulSoup as bs
 import requests
 from bs4.element import Comment
+import datetime
 
 def should_check_url(url : str, blacklisted_sites : dict):
     split = url.split(".")
@@ -37,3 +38,19 @@ def text_from_html(body):
     texts = soup.findAll(text=True)
     visible_texts = filter(tag_visible, texts)  
     return u" ".join(t.strip() for t in visible_texts)
+
+def all_dates(year, month, date):
+    start_date = datetime.date(year, month, date)
+    end_date = datetime.date(year+1, month, date)
+    if (end_date > datetime.date.today()): 
+        end_date = datetime.date.today()
+    print(end_date)
+    delta = datetime.timedelta(days=1)
+
+    all_days = list()
+
+    while start_date <= end_date:
+    	date = start_date.strftime("%m%d%Y")
+    	all_days.append(date)
+    	start_date += delta
+    return all_days
