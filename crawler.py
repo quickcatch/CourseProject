@@ -2,14 +2,14 @@ from bs4 import BeautifulSoup as bs
 import requests
 from bs4.element import Comment
 import datetime
-from os import path,mkdir
+from os import path,mkdir, getcwd
 import validators
 
 def should_check_url(url : str, blacklisted_sites : dict):
     split = url.split(".")
-    if ("www" in split[0] and blacklisted_sites.get(split[1]) != None):
+    if ("www" in split[0] and any(split[1] in string for string in blacklisted_sites)):
         return False
-    elif(blacklisted_sites.get(split[0]) != None):
+    elif(any(split[0] in string for string in blacklisted_sites)):
         return False
     return True
 
@@ -65,14 +65,15 @@ def all_dates(year, month, date):
         start_date += delta
     return all_days
 
-def get_articles_for_date(date):
+def get_articles_for_date(date, blacklist):
     page_num = 1
     current_url = f"https://news.ycombinator.com/front?day={date}&p={page_num}"
     current_articles = get_all_articles(current_url)
     articles = []
     while len(current_articles) > 0:
         for a in current_articles:
-            articles.append(a)
+            if (should_check_url(a, blacklist)):
+                articles.append(a)
         page_num += 1
         current_url = f"https://news.ycombinator.com/front?day={date}&p={page_num}"
         current_articles = get_all_articles(current_url)
@@ -81,12 +82,15 @@ def get_articles_for_date(date):
 def url_to_filename(url):
     return url.replace("/", "{").replace(":","}")
 
-def crawl(start_year, start_month, start_day):
+def crawl(start_year, start_month, start_day, blacklist_file):
     dates = all_dates(start_year, start_month, start_day)
+    drct = getcwd()
+    blacklist_file = drct + '\\' + blacklist_file
+    blacklist = get_blacklisted_sites(blacklist_file)
     if not path.isdir('data'):
         mkdir('data')
     for d in dates:
-        articles = get_articles_for_date(d)
+        articles = get_articles_for_date(d, blacklist)
         dir_name = path.join('data',d)
         print(dir_name)
         if not path.isdir(dir_name):
@@ -103,4 +107,4 @@ def crawl(start_year, start_month, start_day):
                 f.write(text)
 
 if __name__ == "__main__":
-    crawl(2021,11,2)
+    crawl(2021,11,2, "blacklist_sites.txt")
