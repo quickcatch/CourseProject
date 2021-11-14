@@ -1,25 +1,17 @@
+from ast import literal_eval
 from bs4 import BeautifulSoup as bs
-import requests
 from bs4.element import Comment
+import calendar
 import datetime
-from os import path,mkdir
+import numpy as np
 import time
 from os import path,mkdir, getcwd
+import requests
+import tldextract
 import validators
-import numpy as np
+
 from multiprocessing import Process
 
-def should_check_url(url : str, blacklisted_sites : dict):
-    split = url.split(".")
-    if ("www" in split[0] and any(split[1] in string for string in blacklisted_sites)):
-        return False
-    elif(any(split[0] in string for string in blacklisted_sites)):
-        return False
-    return True
-
-def get_blacklisted_sites(file_name):
-    with open(file_name, 'r') as f:
-        return f.readlines()
 
 def get_html(url,number_of_retries_remaining=5):
     try:
@@ -46,10 +38,13 @@ def tag_visible(element):
 def is_valid_url(url):
     return validators.url(url)
 
-def get_all_articles(hn_url):
-    soup = bs(get_html(hn_url),'html.parser')
-    return [a['href'] for a in soup.find_all('a',{'class':'titlelink'}) if "ycombinator" not in a['href'] and is_valid_url(a["href"])]
+def get_toplevel_domain(url):
+    parsed = tldextract.extract(url)
+    return parsed.domain + '.' + parsed.suffix
 
+def get_blacklisted_sites(file_name):
+    with open(file_name, 'r') as f:
+        return set([get_toplevel_domain(x) for x in f.readlines()])
 
 def text_from_html(body):
     soup = bs(body, 'html.parser')
@@ -57,89 +52,64 @@ def text_from_html(body):
     visible_texts = filter(tag_visible, texts)  
     return u" ".join(t.strip() for t in visible_texts)
 
-def all_dates(year, month, date, number_of_days=365):
+def get_stories(limit, end_stamp, start_stamp=None):
+    if start_stamp == None:
+        url = f"http://hn.algolia.com/api/v1/search_by_date?tags=story&hitsPerPage={limit}&numericFilters=created_at_i<{end_stamp}"
+    else:
+        url = f"http://hn.algolia.com/api/v1/search_by_date?tags=story&hitsPerPage={limit}&numericFilters=created_at_i<{end_stamp},created_at_i>{start_stamp}"
+    r = requests.get(url)
+    if r.status_code == 200:
+        return r.json()
+    else:
+        print(f"Failed to get stories for {url} with status code {r.status_code}")
+        return None
+
+def all_timestamps(year, month, date, number_of_days=365):
+    """
+    Gets all the time stamps for the specified interval, where each index in the list represents the timestamp of a new day
+    """
     start_date = datetime.date(year, month, date)
     end_date = start_date + datetime.timedelta(days=number_of_days)
     if (end_date > datetime.date.today()): 
         end_date = datetime.date.today()
-    print(end_date)
     delta = datetime.timedelta(days=1)
- 
-    all_days = list()
+    all_stamps = list()
 
     while start_date <= end_date:
-        date = start_date.strftime("%Y-%m-%d")
-        all_days.append(date)
+        timestamp = calendar.timegm(start_date.timetuple())
+        all_stamps.append(timestamp)
         start_date += delta
-    return all_days
+    return all_stamps
 
-def get_articles_for_date(date, blacklist):
-    page_num = 1
-    current_url = f"https://news.ycombinator.com/front?day={date}&p={page_num}"
-    current_articles = get_all_articles(current_url)
-    articles = []
-    while len(current_articles) > 0:
-        for a in current_articles:
-            if (should_check_url(a, blacklist)):
-                articles.append(a)
-        page_num += 1
-        current_url = f"https://news.ycombinator.com/front?day={date}&p={page_num}"
-        print(f"getting articles for {current_url}")
-        current_articles = get_all_articles(current_url)
-    return articles
+def parse_json(json, blacklisted):
+    result = []
+    if len(json.keys()) == 0:
+        return None
+    if json.get('nbHits',0) <= 0:
+        return []
+    for hit in json.get('hits'):
+        if hit['url'] == None or get_toplevel_domain(hit['url']) in blacklisted:
+            continue
+        result.append((hit['url'],hit['created_at_i']))
+    return result
 
-def url_to_filename(url):
-    return url.replace("/", "{").replace(":","}")
-
-def get_subranges(start_year, start_month, start_day, number_of_days, num_threads=1):
-    dates = all_dates(start_year, start_month, start_day, number_of_days=number_of_days)
-    return [list(x) for x in np.array_split(dates,num_threads)]
-
-def crawl(dates):
-    if not path.isdir('data'):
-        mkdir('data')
-    for d in dates:
-        print(d)
-        articles = get_articles_for_date(d)
-
-def crawl(start_year, start_month, start_day, blacklist_file):
-    dates = all_dates(start_year, start_month, start_day)
-    drct = getcwd()
-    blacklist_file = drct + '\\' + blacklist_file
-    blacklist = get_blacklisted_sites(blacklist_file)
-    if not path.isdir('data'):
-        mkdir('data')
-    for d in dates:
-        articles = get_articles_for_date(d, blacklist)
-        dir_name = path.join('data',d)
-        print(dir_name)
-        if not path.isdir(dir_name):
-            print(f"creating {dir_name}")
-            mkdir(dir_name)
-        for a in articles:
-            print(a)
-            body = get_html(a)
-            if body == None:
-                continue
-            text = text_from_html(body)
-            file_name = path.join(dir_name,url_to_filename(a))
-            with open(file_name,'w+') as f:
-                f.write(text)
-
-def multiprocess_crawl(start_year, start_month, start_day, number_of_days, num_threads):
-    ranges = get_subranges(start_year, start_month, start_day, number_of_days, num_threads)
-    processes = []
-
-    for subrange in ranges:
-        processes.append(Process(target=crawl, args=(subrange,)))
-
-    for p in processes:
-        p.start()
-
-    for p in processes:
-        p.join()
+def get_stories_for_time_interval(limit, start_year,start_month,start_day,num_days=365, blacklist_file='blacklist_sites.txt'):
+    blacklisted = get_blacklisted_sites(blacklist_file)
+    stamps = all_timestamps(start_year,start_month,start_day,num_days)
+    result = []
+    for i in range(len(stamps) - 1):
+        parsed = parse_json(get_stories(limit,dates[i+1],dates[i]),blacklisted)
+        for p in parsed:
+            result.append(p)
+    return result
 
 if __name__ == "__main__":
-    #dates = all_dates(2021,11,1,13)
+    dates = all_timestamps(2021,11,1,13)
     #crawl(dates)
-    multiprocess_crawl(2021,11,1,13,2)
+    #multiprocess_crawl(2021,11,12,1,1)
+    #print(get_toplevel_domain("https://github.com/rabbibotton/clog"))
+    #blacklisted = get_blacklisted_sites('blacklist_sites.txt')
+    #timestamp = int(1636929155)
+    #json = get_stories(50,timestamp)
+    #print(parse_json(json,blacklisted))
+    print(get_stories_for_time_interval(10,2021,11,1,13))
