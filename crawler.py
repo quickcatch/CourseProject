@@ -3,7 +3,10 @@ import requests
 from bs4.element import Comment
 import datetime
 from os import path,mkdir
+import time
 import validators
+import numpy as np
+from multiprocessing import Process
 
 def should_check_url(url : str, blacklisted_sites : dict):
     split = url.split(".")
@@ -17,10 +20,14 @@ def get_blacklisted_sites(file_name):
     with open(file_name, 'r') as f:
         return f.readlines()
 
-def get_html(url):
+def get_html(url,number_of_retries_remaining=5):
     try:
         r = requests.get(url, timeout=10)
         if r.status_code < 200 or r.status_code > 299: # error ocurred
+            if r.status_code == 503:
+                if number_of_retries_remaining > 0:
+                    time.sleep(3)
+                    return get_html(url,number_of_retries_remaining - 1)
             print(f"Error getting html for {url} with status code {r.status_code}")
             return None 
         return r.text
@@ -49,9 +56,9 @@ def text_from_html(body):
     visible_texts = filter(tag_visible, texts)  
     return u" ".join(t.strip() for t in visible_texts)
 
-def all_dates(year, month, date):
+def all_dates(year, month, date, number_of_days=365):
     start_date = datetime.date(year, month, date)
-    end_date = datetime.date(year+1, month, date)
+    end_date = start_date + datetime.timedelta(days=number_of_days)
     if (end_date > datetime.date.today()): 
         end_date = datetime.date.today()
     print(end_date)
@@ -75,17 +82,22 @@ def get_articles_for_date(date):
             articles.append(a)
         page_num += 1
         current_url = f"https://news.ycombinator.com/front?day={date}&p={page_num}"
+        print(f"getting articles for {current_url}")
         current_articles = get_all_articles(current_url)
     return articles
 
 def url_to_filename(url):
     return url.replace("/", "{").replace(":","}")
 
-def crawl(start_year, start_month, start_day):
-    dates = all_dates(start_year, start_month, start_day)
+def get_subranges(start_year, start_month, start_day, number_of_days, num_threads=1):
+    dates = all_dates(start_year, start_month, start_day, number_of_days=number_of_days)
+    return [list(x) for x in np.array_split(dates,num_threads)]
+
+def crawl(dates):
     if not path.isdir('data'):
         mkdir('data')
     for d in dates:
+        print(d)
         articles = get_articles_for_date(d)
         dir_name = path.join('data',d)
         print(dir_name)
@@ -102,5 +114,20 @@ def crawl(start_year, start_month, start_day):
             with open(file_name,'w+') as f:
                 f.write(text)
 
+def multiprocess_crawl(start_year, start_month, start_day, number_of_days, num_threads):
+    ranges = get_subranges(start_year, start_month, start_day, number_of_days, num_threads)
+    processes = []
+
+    for subrange in ranges:
+        processes.append(Process(target=crawl, args=(subrange,)))
+
+    for p in processes:
+        p.start()
+
+    for p in processes:
+        p.join()
+
 if __name__ == "__main__":
-    crawl(2021,11,2)
+    #dates = all_dates(2021,11,1,13)
+    #crawl(dates)
+    multiprocess_crawl(2021,11,1,13,2)
