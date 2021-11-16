@@ -13,7 +13,7 @@ import validators
 from multiprocessing import Process
 
 
-def get_html(url,number_of_retries_remaining=3):
+def get_html(url,number_of_retries_remaining=3,log=False):
     try:
         r = requests.get(url, timeout=5)
         if r.status_code < 200 or r.status_code > 299: # error ocurred
@@ -21,11 +21,13 @@ def get_html(url,number_of_retries_remaining=3):
                 if number_of_retries_remaining > 0:
                     time.sleep(3)
                     return get_html(url,number_of_retries_remaining - 1)
-            print(f"Error getting html for {url} with status code {r.status_code}")
+            if log:
+                print(f"Error getting html for {url} with status code {r.status_code}")
             return None 
         return r.text
     except Exception as e:
-        print(f"Error getting html for {url} due to timeout")
+        if log:
+            print(f"Error getting html for {url} due to timeout")
 
 
 def tag_visible(element):
@@ -86,7 +88,7 @@ def all_timestamps(year, month, date, number_of_days=365):
 
 def parse_json(json, blacklisted):
     result = []
-    if len(json.keys()) == 0:
+    if json == None or len(json.keys()) == 0:
         return None
     if json.get('nbHits',0) <= 0:
         return []
@@ -103,12 +105,13 @@ def write_articles(folder, urls):
             continue
         text = text_from_html(body)
         path_name = path.join(folder,url_to_filename(url))
-        print(path_name)
+        #print(path_name)
         with open(path_name,'w+') as f:
             f.write(text) 
 def write_stories_for_time_interval(start_year,start_month,start_day,num_days=365, blacklist_file='blacklist_sites.txt', limit=250, num_threads = 1):
     blacklisted = get_blacklisted_sites(blacklist_file)
     stamps = all_timestamps(start_year,start_month,start_day,num_days)
+    print(stamps)
     cur_start = stamps[0]
     cur_end = stamps[1]
     if not path.isdir('data'):
@@ -120,22 +123,25 @@ def write_stories_for_time_interval(start_year,start_month,start_day,num_days=36
         if not path.isdir(cur_dir):
             mkdir(cur_dir)
         parsed = parse_json(get_stories(limit,cur_end,cur_start),blacklisted)
-        if len(parsed) == 0:
+        if parsed == None or len(parsed) == 0:
+            print("incremeting i")
             i += 1
             if i < len(stamps) - 1:
                 cur_start = stamps[i]
                 cur_end = stamps[i+1]
+                cur_dir = path.join('data',str(cur_start) + "_" + str(cur_end))
+                min_time = 9999999999999999
             continue
         min_time = min([p[1] for p in parsed])
         split_articles = np.array_split(parsed,num_threads)
         processes = []
-        for i in range(num_threads):
-            processes.append(Process(target=write_articles, args=(cur_dir,split_articles[i])))
+        for j in range(num_threads):
+            processes.append(Process(target=write_articles, args=(cur_dir,split_articles[j])))
         for p in processes:
             p.start()
         for p in processes:
             p.join()
-        if min_time < 9999999999999999 and min_time > dates[i]:
+        if min_time < 9999999999999999 and min_time > cur_start:
             cur_end = min_time
             cur_dir = path.join('data',str(cur_start) + "_" + str(cur_end))
         else:
@@ -155,4 +161,4 @@ if __name__ == "__main__":
     #timestamp = int(1636929155)
     #json = get_stories(50,timestamp)
     #print(parse_json(json,blacklisted))
-    print(write_stories_for_time_interval(2021,11,1,13,limit=500,num_threads=8))
+    print(write_stories_for_time_interval(2021,11,1,13,limit=500,num_threads=16))
