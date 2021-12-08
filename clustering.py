@@ -130,8 +130,7 @@ def classify(url, model, vectorizer):
     if type(result) == list or type(result) == np.ndarray:
         return result[0]
     return result
-def get_similar_docs(url,cos=None,num_similar=5):
-    cos = CosSimilarity('data_entire') if cos == None else cos
+def get_similar_docs(url,cos,num_similar=5):
     print("made cos object")
     matrix,urls = cos.get_similarity(url)
     print("created matrix")
