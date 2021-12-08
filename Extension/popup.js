@@ -1,4 +1,4 @@
-var backendUrl = "gjfdklsgjlfdkg";
+var backendUrl = "http://127.0.0.1:8000/classify/";
 
 function getCurUrl(tabs) {
     return tabs[0].url;
@@ -55,7 +55,7 @@ function updateTable(results) {
 }
 
 function getRelatedArticles(url) {
-    var getUrl = createGetUrl(backendUrl,{"articleUrl":url});
+    var getUrl = backendUrl + encodeURIComponent(url);
     var results = sendGet(getUrl);
     updateTable(results)
     toggleElement('results');
@@ -78,14 +78,15 @@ function handleClick() {
     });
 }
 
+function getArticleUrl() {
+    //https://www.sung.codes/blog/2019/getting-dom-content-from-chrome-extension-2 do this
+    return null;
+}
+
 function getRelated(url){
     if (isArticle(url)) {
-        alert(url);
-        setValue('result1-title',"fart");
-        getRelatedArticles(url);
-    }
-    else {
-        alert("not an article lol");
+        articleUrl = getArticleUrl();
+        getRelatedArticles(articleUrl);
     }
 }
 
