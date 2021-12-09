@@ -23,6 +23,6 @@ async def startup():
 @app.get("/classify/{url:path}")
 async def read_item(url):
     global cos
-    print(cos,vectorizer,url_df,model)
+    #print(cos,vectorizer,url_df,model)
     results = get_similar_docs(url,cos)
     return {"docs": results}

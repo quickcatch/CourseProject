@@ -16,20 +16,6 @@ function toggleElement(id) {
        e.style.display = 'none';
 }
 
-function createGetUrl(baseUrl, values) {
-    var url = baseUrl;
-    var numParams = 0;
-    for (const [key, value] of Object.entries(values)) {
-        if(numParams > 0) {
-            url += "&" + key + "=" + value;
-        }
-        else {
-            url  += "?" + key + "=" + value;
-        }
-        numParams += 1;
-      }
-    return url;
-}
 
 function sendGet(url) {
     //values is a dict
@@ -78,27 +64,10 @@ function handleClick() {
     });
 }
 
-function querySelect() {
-    document.querySelector('h1').href;
-}
-
-function getArticleUrl() {
-    //https://www.sung.codes/blog/2019/getting-dom-content-from-chrome-extension-2 do this
-    chrome.tabs.query({active: true,  currentWindow: true, windowId: chrome.windows.WINDOW_ID_CURRENT}, 
-        function(tabs) {
-        var tabId = tabs[0].id;
-        chrome.scripting.executeScript ({
-            target: {tabId: tabId},
-            function: querySelect}
-        , getRelatedArticles);
-    });
-}
-
 
 function getRelated(url){
     if (isArticle(url)) {
-        articleUrl = getArticleUrl();
-        //getRelatedArticles(Url);
+        getRelatedArticles(url);
     }
 }
 

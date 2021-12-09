@@ -117,7 +117,6 @@ class CosSimilarity:
         return (sim, list(urls), list(titles))
     def get_most_similar(self,matrix,urls, titles, num_docs=1):
         assert type(urls) == list
-        print(len(matrix))
         ind = np.argpartition(matrix,-num_docs)[-num_docs:]
         return [(urls[i], titles[i]) for i in ind]
 
@@ -131,9 +130,9 @@ def classify(url, model, vectorizer):
         return result[0]
     return result
 def get_similar_docs(url,cos,num_similar=5):
-    print("made cos object")
+    print("url is " + url)
     matrix,urls, titles = cos.get_similarity(url)
-    print("created matrix")
+    print("urls is " + urls)
     return cos.get_most_similar(matrix,urls, titles, num_similar)
 if __name__ == "__main__":
     
