@@ -1,7 +1,6 @@
 import os
 import numpy as np
 from sklearn.feature_extraction.text import TfidfVectorizer
-import time
 from sklearn.cluster import KMeans
 from joblib import dump,load
 import pandas as pd
@@ -10,8 +9,18 @@ from crawler import text_from_html, get_html
 import nltk, string
 from tqdm import tqdm
 from itertools import chain
+
 remove_punctuation_map = dict((ord(char), None) for char in string.punctuation)
+
 def get_lines(file_name):
+    """Gets lines from file
+
+    Args:
+        file_name (str): file name
+
+    Returns:
+        str: concatenated lines
+    """
     with open(file_name, "r", encoding="utf8") as f:
         lines = "".join(f.readlines()[1:])
         if len(lines) > 0:
@@ -21,6 +30,15 @@ def get_lines(file_name):
 
 
 def get_file_names(directory,filter=set()):
+    """Gets filenames from root data directory
+
+    Args:
+        directory (str): root data directory
+        filter (set, optional): set of urls to include. Defaults to set().
+
+    Returns:
+        list: list of filenames
+    """
     filenames = []
     for foldername in tqdm(os.listdir(directory),desc="Getting files"):
         # access directory of certain day
@@ -40,25 +58,53 @@ def get_file_names(directory,filter=set()):
                     if os.path.isfile(f):
                         filenames.append(f)
     return filenames
-#provide the directory, the destination directory, number of kmeans clusters, and how many iterations for kmeans to go through
 
 def stem_tokens(tokens):
+    """Stems tokens
+
+    Args:
+        tokens (seq): sequence of tokens
+
+    Returns:
+        Generator: generator of stemmed items
+    """
     stemmer = nltk.stem.porter.PorterStemmer()
     return (stemmer.stem(item) for item in tokens)
 
-'''remove punctuation, lowercase, stem'''
 def normalize(text):
+    """Converts words to lowercase, removes punctuation, and stems
+
+    Args:
+        text (str): text to normalize
+
+    Returns:
+        str: normalized text
+    """
     return stem_tokens(nltk.word_tokenize(text.lower().translate(remove_punctuation_map)))    
 
 def parse_metadata(metadata):
+    """Parses metadata line from file
+
+    Args:
+        metadata (str): metadata line
+
+    Returns:
+        dict: dict containing title and url
+    """
     split_triple = metadata.split("---")
     url = split_triple[1].split("/------------------------------")[0]
     return {"title" : split_triple[0], "url" : url}
 
 def clustering(directory, dest_dir, num_clusters=5, max_iterations=200, vectorizer_path=None):
-    #for debugging purposes only
-    #initial_time = time.time()
-    stemmer = nltk.stem.porter.PorterStemmer()
+    """Clusters text documents using KMeans
+
+    Args:
+        directory (str): root directory containing text documents
+        dest_dir (str): Folder to save model to
+        num_clusters (int, optional): Number of clusters. Defaults to 5.
+        max_iterations (int, optional): Max number of K-Means iterations. Defaults to 200.
+        vectorizer_path ([type], optional): Filename of saved vectorizer object. Defaults to None.
+    """
     filenames =  get_file_names(directory)
     print(f"{len(filenames)} total files")
     file_contents_fit = ("".join(open(f,"r",encoding="utf8").readlines()[1:]) for f in filenames)
@@ -72,14 +118,9 @@ def clustering(directory, dest_dir, num_clusters=5, max_iterations=200, vectoriz
         vectorizer = load(vectorizer_path)
     tfidf_matrix = vectorizer.transform(file_contents_transform)
     print("Done transforming")
-    #for debugging purposes only
-    #second_time = time.time()
-    #print('time to vectorize: %s seconds' % (time.time() - first_time))
     km = KMeans(n_clusters= num_clusters, max_iter=max_iterations, n_init=10)
     km = km.fit(tfidf_matrix)
     labels = km.labels_
-    #for debugging purposes only
-    #print('time for kmeans: %s seconds' % (time.time() - second_time))
     
     #to re-access the file, call load(filename)
     #can compress this kmeans file with arg compress=, will put both files in directory with specific names
@@ -92,20 +133,40 @@ def clustering(directory, dest_dir, num_clusters=5, max_iterations=200, vectoriz
 
 class CosSimilarity:
     def __init__(self, directory,model,df,vect):
+        """Initializes CosSimilarity object
+
+        Args:
+            directory (str): data directory
+            model (sklearn.cluster.KMeans): trained cluster model
+            df (pd.DataFrame): dataframe storing URL's, Titles, and cluster label
+            vect (TfidfVectorizer): Trained TfidfVectorizer
+        """
         self.vectorizer = TfidfVectorizer(use_idf=True, stop_words={'english'}, tokenizer=normalize, dtype=np.float32)
         self.directory = directory
         self.model = model
         self.df = df
         self.existing_vect = vect
     def cos_similarity(self,texts):
+        """Calculates cos similarity matrix between list of text documents
+
+        Args:
+            texts (list): list of text documents, 1st element must be the document we want to find similar documents for
+
+        Returns:
+            np.ndarray: 1st column of similarity matrix representing similarities with other documents
+        """
         tfidf = self.vectorizer.fit_transform(texts)
         result = ((tfidf * tfidf.T).A)[1:,0]
         return result
-    def parse_metadata(metadata):
-        split_triple = metadata.split("---")
-        url = split_triple[1].split("/------------------------------")[0]
-        return {"title" : split_triple[0], "url" : url}
     def get_similarity(self,url):
+        """Gets similarity matrix and urls/titles for given url
+
+        Args:
+            url (str): url to get similarity matrix for
+
+        Returns:
+            tuple: tuple containing similarity vector, urls, and titles
+        """
         cluster = classify(url,self.model, self.existing_vect)
         urls = set(self.df[self.df["cluster"] == cluster]['URL'])
         titles = set(self.df[self.df["cluster"] == cluster]['Title'])
@@ -116,6 +177,17 @@ class CosSimilarity:
         sim = self.cos_similarity(texts)
         return (sim, list(urls), list(titles))
     def get_most_similar(self,matrix,urls, titles, num_docs=1):
+        """Gets most similar documents according to similarity vector
+
+        Args:
+            matrix (np.ndarray): similarity vector
+            urls (list): list of urls
+            titles (list): list of titles
+            num_docs (int, optional): Number of similar documents to find. Defaults to 1.
+
+        Returns:
+            tuple: tuple containing list of urls and list of titles of similar documents
+        """
         assert type(urls) == list
         ind = np.argpartition(matrix,-num_docs)[-num_docs:]
         return ([urls[i] for i in ind],[titles[i] for i in ind])
