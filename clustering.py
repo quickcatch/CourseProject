@@ -63,9 +63,8 @@ def clustering(directory, dest_dir, num_clusters=5, max_iterations=200, vectoriz
     print(f"{len(filenames)} total files")
     file_contents_fit = ("".join(open(f,"r",encoding="utf8").readlines()[1:]) for f in filenames)
     file_contents_transform = ("".join(open(f,"r",encoding="utf8").readlines()[1:]) for f in filenames)
-    urls = (parse_metadata(open(f,"r",encoding="utf8").readline())['url'] for f in filenames)
-    #first_time = time.time()
-    #print('time to access files: %s seconds' % (time.time() - initial_time))
+    urls = (parse_metadata(open(f,"r",encoding="utf8").readline()[0])['urls'] for f in filenames)
+    titles = (parse_metadata(open(f,"r",encoding="utf8").readline()[0])['titles'] for f in filenames)
     if vectorizer_path == None or not os.path.exists(vectorizer_path):
         tfidf_vectorizer = TfidfVectorizer(use_idf=True, stop_words={'english'}, max_df=.7, tokenizer=normalize)
         vectorizer = tfidf_vectorizer.fit(file_contents_fit)
@@ -87,7 +86,7 @@ def clustering(directory, dest_dir, num_clusters=5, max_iterations=200, vectoriz
     if not os.path.exists(dest_dir):
         os.mkdir(dest_dir)
     dump(km, os.path.join(dest_dir,'model.pkl'))
-    URL_cl = pd.DataFrame(list(zip(urls, labels)), columns= ['URL', 'cluster'])
+    URL_cl = pd.DataFrame(list(zip(urls, titles, labels, )), columns= ['URL', 'Title', 'cluster'])
     dump(URL_cl, os.path.join(dest_dir, 'dataframe.pkl'))
     dump(vectorizer,os.path.join(dest_dir,'vectorizer.pkl'))
 
@@ -119,7 +118,7 @@ class CosSimilarity:
         assert type(urls) == list
         print(len(matrix))
         ind = np.argpartition(matrix,-num_docs)[-num_docs:]
-        return [urls[i] for i in ind]
+        return [(urls[i][0], urls[i][1]) for i in ind]
 
                 
 def classify(url, model, vectorizer):
@@ -136,8 +135,8 @@ def get_similar_docs(url,cos,num_similar=5):
     print("created matrix")
     return cos.get_most_similar(matrix,urls,num_similar)
 if __name__ == "__main__":
-    """
-    print(argv)
+    
+    '''print(argv)
     if len(argv) < 3:
         print("bad args")
         exit(1)
@@ -145,5 +144,5 @@ if __name__ == "__main__":
         clustering(argv[1],argv[2],num_clusters=int(argv[3]),vectorizer_path="clusters/vectorizer.pkl")
     else:
         clustering(argv[1],argv[2],vectorizer_path="clusters/vectorizer.pkl")
-    """
+    '''
     print(get_similar_docs("https://www.detroitnews.com/story/business/2021/12/07/amazon-aws-cloud-users-report-issues-accessing-websites/6419088001/"))
