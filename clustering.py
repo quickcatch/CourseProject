@@ -233,6 +233,16 @@ class CosSimilarity:
 
 
 def classify(url, model, vectorizer):
+    """Predicts cluster of url
+
+    Args:
+        url (str): url of article
+        model (sklearn.cluster.KMeans): trained model
+        vectorizer (TfIdfVectorizer): Trained vectorizer
+
+    Returns:
+        [type]: [description]
+    """
     html = get_html(url)
     text = text_from_html(html)
     tfdif_matrix = vectorizer.transform([text])
@@ -243,6 +253,16 @@ def classify(url, model, vectorizer):
 
 
 def get_similar_docs(url, cos, num_similar=5):
+    """Gets similar docs for given url
+
+    Args:
+        url (str): url of article
+        cos (CosSimilarity): CosSimilarity object
+        num_similar (int, optional): number of similar docs to retrieve. Defaults to 5.
+
+    Returns:
+         tuple: tuple containing list of urls and list of titles of similar documents
+    """
     matrix, urls, titles = cos.get_similarity(url)
     return cos.get_most_similar(matrix, urls, titles, num_similar)
 
