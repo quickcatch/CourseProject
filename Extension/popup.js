@@ -78,15 +78,27 @@ function handleClick() {
     });
 }
 
+function querySelect() {
+    document.querySelector('h1').href;
+}
+
 function getArticleUrl() {
     //https://www.sung.codes/blog/2019/getting-dom-content-from-chrome-extension-2 do this
-    return null;
+    chrome.tabs.query({active: true,  currentWindow: true, windowId: chrome.windows.WINDOW_ID_CURRENT}, 
+        function(tabs) {
+        var tabId = tabs[0].id;
+        chrome.scripting.executeScript ({
+            target: {tabId: tabId},
+            function: querySelect}
+        , getRelatedArticles);
+    });
 }
+
 
 function getRelated(url){
     if (isArticle(url)) {
         articleUrl = getArticleUrl();
-        getRelatedArticles(articleUrl);
+        //getRelatedArticles(Url);
     }
 }
 
