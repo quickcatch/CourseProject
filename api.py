@@ -24,5 +24,7 @@ async def startup():
 async def read_item(url):
     global cos
     #print(cos,vectorizer,url_df,model)
-    results = get_similar_docs(url,cos)
-    return {"docs": results}
+    docs, titles = get_similar_docs(url,cos)
+    print(docs)
+    print(titles)
+    return {"docs": docs, "titles" : titles}

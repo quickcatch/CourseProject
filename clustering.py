@@ -63,8 +63,8 @@ def clustering(directory, dest_dir, num_clusters=5, max_iterations=200, vectoriz
     print(f"{len(filenames)} total files")
     file_contents_fit = ("".join(open(f,"r",encoding="utf8").readlines()[1:]) for f in filenames)
     file_contents_transform = ("".join(open(f,"r",encoding="utf8").readlines()[1:]) for f in filenames)
-    urls = (parse_metadata(open(f,"r",encoding="utf8").readline()[0])['urls'] for f in filenames)
-    titles = (parse_metadata(open(f,"r",encoding="utf8").readline()[0])['titles'] for f in filenames)
+    urls = (parse_metadata(open(f,"r",encoding="utf8").readline())['url'] for f in filenames)
+    titles = (parse_metadata(open(f,"r",encoding="utf8").readline())['title'] for f in filenames)
     if vectorizer_path == None or not os.path.exists(vectorizer_path):
         tfidf_vectorizer = TfidfVectorizer(use_idf=True, stop_words={'english'}, max_df=.7, tokenizer=normalize)
         vectorizer = tfidf_vectorizer.fit(file_contents_fit)
@@ -118,7 +118,7 @@ class CosSimilarity:
     def get_most_similar(self,matrix,urls, titles, num_docs=1):
         assert type(urls) == list
         ind = np.argpartition(matrix,-num_docs)[-num_docs:]
-        return [(urls[i], titles[i]) for i in ind]
+        return ([urls[i] for i in ind],[titles[i] for i in ind])
 
                 
 def classify(url, model, vectorizer):
@@ -130,13 +130,11 @@ def classify(url, model, vectorizer):
         return result[0]
     return result
 def get_similar_docs(url,cos,num_similar=5):
-    print("url is " + url)
     matrix,urls, titles = cos.get_similarity(url)
-    print("urls is " + urls)
     return cos.get_most_similar(matrix,urls, titles, num_similar)
 if __name__ == "__main__":
     
-    '''print(argv)
+    print(argv)
     if len(argv) < 3:
         print("bad args")
         exit(1)
@@ -144,5 +142,4 @@ if __name__ == "__main__":
         clustering(argv[1],argv[2],num_clusters=int(argv[3]),vectorizer_path="clusters/vectorizer.pkl")
     else:
         clustering(argv[1],argv[2],vectorizer_path="clusters/vectorizer.pkl")
-    '''
-    print(get_similar_docs("https://www.detroitnews.com/story/business/2021/12/07/amazon-aws-cloud-users-report-issues-accessing-websites/6419088001/"))
+    #print(get_similar_docs("https://www.detroitnews.com/story/business/2021/12/07/amazon-aws-cloud-users-report-issues-accessing-websites/6419088001/"))
