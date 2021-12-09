@@ -108,17 +108,18 @@ class CosSimilarity:
     def get_similarity(self,url):
         cluster = classify(url,self.model, self.existing_vect)
         urls = set(self.df[self.df["cluster"] == cluster]['URL'])
+        titles = set(self.df[self.df["cluster"] == cluster]['Title'])
         html = get_html(url)
         html_text = text_from_html(html)
         filenames = get_file_names(self.directory,filter=urls)        
         texts = chain([html_text],("".join(open(f,"r",encoding="utf8").readlines()[1:]) for f in filenames))
         sim = self.cos_similarity(texts)
-        return (sim, list(urls))
-    def get_most_similar(self,matrix,urls,num_docs=1):
+        return (sim, list(urls), list(titles))
+    def get_most_similar(self,matrix,urls, titles, num_docs=1):
         assert type(urls) == list
         print(len(matrix))
         ind = np.argpartition(matrix,-num_docs)[-num_docs:]
-        return [(urls[i][0], urls[i][1]) for i in ind]
+        return [(urls[i][0], titles[i][1]) for i in ind]
 
                 
 def classify(url, model, vectorizer):
@@ -131,9 +132,9 @@ def classify(url, model, vectorizer):
     return result
 def get_similar_docs(url,cos,num_similar=5):
     print("made cos object")
-    matrix,urls = cos.get_similarity(url)
+    matrix,urls, titles = cos.get_similarity(url)
     print("created matrix")
-    return cos.get_most_similar(matrix,urls,num_similar)
+    return cos.get_most_similar(matrix,urls, titles, num_similar)
 if __name__ == "__main__":
     
     '''print(argv)
