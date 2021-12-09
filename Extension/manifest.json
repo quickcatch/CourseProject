@@ -3,9 +3,6 @@
     "description": "Extension that shows articles related to current HN Article",
     "version": "1.0",
     "manifest_version": 3,
-    "background": {
-        "service_worker": "background.js"
-      },
     "permissions" : [
         "tabs", 
         "scripting"
