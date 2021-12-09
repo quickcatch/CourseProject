@@ -119,7 +119,7 @@ class CosSimilarity:
         assert type(urls) == list
         print(len(matrix))
         ind = np.argpartition(matrix,-num_docs)[-num_docs:]
-        return [(urls[i][0], titles[i][1]) for i in ind]
+        return [(urls[i], titles[i]) for i in ind]
 
                 
 def classify(url, model, vectorizer):
