@@ -19,38 +19,33 @@ function toggleElement(id) {
 
 function sendGet(url) {
     //values is a dict
-    var req = new XMLHttpRequest();
-    req.open("GET", url, true);
-    req.setRequestHeader('Content-Type', 'application/json');
-    req.onreadystatechange = function()
-    {
-        if(req.readyState == 4 && req.status == 200) {
-            return req.responseText
-        }
-    }
-    req.send(null);
-    return null;
+    var xmlHttp = new XMLHttpRequest();
+    xmlHttp.open( "GET", url, false ); // false for synchronous request
+    xmlHttp.send( null );
+    return xmlHttp.responseText;
 }
 
 function updateTable(results) {
     //results is an array of arrays where each element is of the form [post title, url]
-    for(var i = 1; i <= 5; i++) {
-        setValue('result${i}-url', results[i][0]);
-        setValue('result${i}-title', results[i][1]);
+    alert(JSON.stringify(results));
+    for(var i = 0; i < 5; i++) {
+        setValue('result' + (i+1) + '-url', results['docs'][i],results['docs'][i]);
+        setValue('result' + (i+1) + '-title', results['titles'][i]);
     }
 }
 
 function getRelatedArticles(url) {
     var getUrl = backendUrl + encodeURIComponent(url);
-    var results = sendGet(getUrl);
+    var results = JSON.parse(sendGet(getUrl));
     updateTable(results)
     toggleElement('results');
 }
 
-function setValue(id,value) {
+function setValue(id,value,href=null) {
     var e = document.getElementById(id);
+    if(href != null)
+        e.href = href;
     e.innerHTML = value;
-    e.value = value;
 }
 
 function handleClick() {
