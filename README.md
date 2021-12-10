@@ -10,6 +10,10 @@ In order to run this github, you will need the following libraries installed:
 Os, numpy, time, sklearn, joblib, pandas, sys, crawler, nltk, string, tqdm, itertools, 
 ast, bs4, calendar, datetime, requests, tldextract, validators, fastAPI.
 
+## Video on how to set this up (video presentation):
+
+https://www.youtube.com/watch?v=2MKptyXzBh8
+
 ## Setting up the Extension: 
 
 ## Step 1: getting the data. Two methods for getting the data
