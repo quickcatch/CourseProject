@@ -1,0 +1,29 @@
+{
+    "name": "HackerNews Article Recommender",
+    "description": "Extension that shows articles related to current HN Article",
+    "version": "1.0",
+    "manifest_version": 3,
+    "permissions" : [
+        "tabs", 
+        "scripting"
+    ],
+    "host_permissions": [
+      "http://*/",
+      "https://*/"
+    ],
+    "action" : {
+        "default_popup" : "popup.html",
+        "default_icon" : {
+            "16" : "/images/logo16.png",
+            "32" : "/images/logo32.png",
+            "48" : "/images/logo48.png",
+            "128" : "/images/logo128.png"
+        }
+    },
+    "content_scripts": [
+        {
+          "matches": ["*://news.ycombinator.com/*"],
+          "js":["popup.js"]
+        }
+      ]
+  }
